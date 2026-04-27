@@ -467,12 +467,19 @@ async function loadProducts(forceRefresh=false){
   const BATCH=10;
   let offset=0;
   allProducts=[];
-  document.getElementById('product-grid').innerHTML='';
+  // Show skeletons while first batch loads
+  document.getElementById('product-grid').innerHTML=`
+    <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
+    <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
+    <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
+    <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>`;
+  let firstBatch=true;
   while(true){
     try{
       const r=await fetch(`${SU}/rest/v1/products?order=created_at.desc&limit=${BATCH}&offset=${offset}`,{headers:{...H,'Range-Unit':'items','Range':`${offset}-${offset+BATCH-1}`}});
       const batch=await r.json();
       if(!Array.isArray(batch)||batch.length===0)break;
+      if(firstBatch){document.getElementById('product-grid').innerHTML='';firstBatch=false;}
       allProducts=[...allProducts,...batch];
       appendProducts(batch);
       offset+=batch.length;
