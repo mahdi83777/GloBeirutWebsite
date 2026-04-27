@@ -78,6 +78,7 @@ nav{background:#fff;border-bottom:1px solid var(--border);display:flex;align-ite
 .skeleton-line.med{width:65%;}
 .skeleton-line.price{width:30%;height:18px;margin-top:12px;}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 .about-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:80px 40px;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
 .about-label{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);margin-bottom:16px;text-transform:uppercase;}
 .about-section h2{font-family:var(--serif);font-size:42px;font-weight:300;line-height:1.15;margin-bottom:20px;}
@@ -462,18 +463,57 @@ async function loadProducts(forceRefresh=false){
       if(cached){const {ts,data}=JSON.parse(cached);if(Date.now()-ts<CACHE_TTL&&Array.isArray(data)&&data.length){allProducts=data;renderProducts();return;}}
     }catch(e){try{sessionStorage.removeItem(CACHE_KEY);}catch(e2){}}
   }
-  try{
-    const result=await sbGet('products');
-    allProducts=Array.isArray(result)?result:[];
-    try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:allProducts}));}catch(e){}
-  }catch(e){
-    allProducts=[];
-    document.getElementById('product-grid').innerHTML='<div class="empty-store">Could not load products. Please refresh.</div>';
+  // Progressive loading — fetch in batches of 10, render each as it arrives
+  const BATCH=10;
+  let offset=0;
+  allProducts=[];
+  document.getElementById('product-grid').innerHTML='';
+  while(true){
+    try{
+      const r=await fetch(`${SU}/rest/v1/products?order=created_at.desc&limit=${BATCH}&offset=${offset}`,{headers:{...H,'Range-Unit':'items','Range':`${offset}-${offset+BATCH-1}`}});
+      const batch=await r.json();
+      if(!Array.isArray(batch)||batch.length===0)break;
+      allProducts=[...allProducts,...batch];
+      appendProducts(batch);
+      offset+=batch.length;
+      if(batch.length<BATCH)break;
+    }catch(e){break;}
+  }
+  if(!allProducts.length){
+    document.getElementById('product-grid').innerHTML='<div class="empty-store">No products yet — check back soon.</div>';
     return;
   }
-  renderProducts();
+  // Rebuild filter bar now we have all products
+  renderFilterBar('All');
+  try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:allProducts}));}catch(e){}
 }
-function filterProducts(cat,btn){document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderProducts(cat);}
+function appendProducts(batch){
+  const grid=document.getElementById('product-grid');
+  batch.forEach(p=>{
+    const img=p.img_data||p.img_url;
+    const imgEl=img?`<img src="${img}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'product-img-ph\\'>${p.name}</div>'">`:`<div class="product-img-ph">${p.name}</div>`;
+    const sizes=p.sizes?p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join(''):'';
+    const inStock=parseInt(p.stock||0)>0;
+    const card=document.createElement('div');
+    card.className='product-card';
+    card.style.animation='fadeIn .3s ease';
+    card.dataset.category=p.category;
+    card.innerHTML=`<div class="product-img-wrap">${imgEl}</div><div class="product-info"><div class="product-cat">${p.category}</div><div class="product-name">${p.name}</div>${p.description?`<div class="product-desc">${p.description}</div>`:''}${sizes?`<div class="product-sizes">${sizes}</div>`:''}
+    <div class="product-footer"><div class="product-price">${fmt(p.price)}</div>${inStock?`<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button>`:`<span class="out-of-stock">Out of Stock</span>`}</div></div>`;
+    grid.appendChild(card);
+  });
+}
+function renderFilterBar(filter){
+  const cats=[...new Set(allProducts.map(p=>p.category))];
+  document.getElementById('filter-bar').innerHTML='<button class="filter-btn'+(filter==='All'?' active':'')+'" onclick="filterProducts(\'All\',this)">All</button>'+cats.map(c=>`<button class="filter-btn${filter===c?' active':''}" onclick="filterProducts('${c}',this)">${c}</button>`).join('');
+}
+function filterProducts(cat,btn){
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('#product-grid .product-card').forEach(card=>{
+    card.style.display=(cat==='All'||card.dataset.category===cat)?'':'none';
+  });
+}
 function renderProducts(filter='All'){
   const grid=document.getElementById('product-grid');
   const cats=[...new Set(allProducts.map(p=>p.category))];
