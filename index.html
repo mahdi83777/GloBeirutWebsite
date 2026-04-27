@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GloBeirut — Lebanese Fashion</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231a1410'/><text x='50%25' y='50%25' dominant-baseline='central' text-anchor='middle' font-family='Georgia,serif' font-size='14' font-weight='700' fill='%23c9602a'>GB</text></svg>">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
@@ -78,7 +79,8 @@ nav{background:#fff;border-bottom:1px solid var(--border);display:flex;align-ite
 .skeleton-line.med{width:65%;}
 .skeleton-line.price{width:30%;height:18px;margin-top:12px;}
 @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{0%{opacity:0;transform:translateY(16px) scale(.97)}100%{opacity:1;transform:translateY(0) scale(1)}}
+.pop-in{animation:popIn .35s ease forwards;}
 .about-section{background:var(--surface);border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:80px 40px;display:grid;grid-template-columns:1fr 1fr;gap:80px;align-items:center;}
 .about-label{font-family:var(--mono);font-size:11px;letter-spacing:3px;color:var(--accent);margin-bottom:16px;text-transform:uppercase;}
 .about-section h2{font-family:var(--serif);font-size:42px;font-weight:300;line-height:1.15;margin-bottom:20px;}
@@ -486,24 +488,22 @@ async function loadProducts(forceRefresh=false){
   document.getElementById('product-grid').innerHTML='';
   renderFilterBar('All');
   allProducts.forEach((p,i)=>{
-    setTimeout(()=>appendProducts([p]),i*80);
+    setTimeout(()=>appendProduct(p),i*100);
   });
 }
-function appendProducts(batch){
+function appendProduct(p){
   const grid=document.getElementById('product-grid');
-  batch.forEach(p=>{
-    const img=p.img_data||p.img_url;
-    const imgEl=img?`<img src="${img}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'product-img-ph\\'>${p.name}</div>'">`:`<div class="product-img-ph">${p.name}</div>`;
-    const sizes=p.sizes?p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join(''):'';
-    const inStock=parseInt(p.stock||0)>0;
-    const card=document.createElement('div');
-    card.className='product-card';
-    card.style.animation='fadeIn .3s ease';
-    card.dataset.category=p.category;
-    card.innerHTML=`<div class="product-img-wrap">${imgEl}</div><div class="product-info"><div class="product-cat">${p.category}</div><div class="product-name">${p.name}</div>${p.description?`<div class="product-desc">${p.description}</div>`:''}${sizes?`<div class="product-sizes">${sizes}</div>`:''}
-    <div class="product-footer"><div class="product-price">${fmt(p.price)}</div>${inStock?`<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button>`:`<span class="out-of-stock">Out of Stock</span>`}</div></div>`;
-    grid.appendChild(card);
-  });
+  const img=p.img_data||p.img_url;
+  const imgEl=img?`<img src="${img}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'product-img-ph\\'>${p.name}</div>'">`:`<div class="product-img-ph">${p.name}</div>`;
+  const sizes=p.sizes?p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join(''):'';
+  const inStock=parseInt(p.stock||0)>0;
+  const card=document.createElement('div');
+  card.className='product-card pop-in';
+  card.dataset.category=p.category;
+  card.dataset.id=p.id;
+  card.innerHTML=`<div class="product-img-wrap">${imgEl}</div><div class="product-info"><div class="product-cat">${p.category}</div><div class="product-name">${p.name}</div>${p.description?`<div class="product-desc">${p.description}</div>`:''}${sizes?`<div class="product-sizes">${sizes}</div>`:''}
+  <div class="product-footer"><div class="product-price">${fmt(p.price)}</div>${inStock?`<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button>`:`<span class="out-of-stock">Out of Stock</span>`}</div></div>`;
+  grid.appendChild(card);
 }
 function renderFilterBar(filter){
   const cats=[...new Set(allProducts.map(p=>p.category))];
@@ -518,18 +518,11 @@ function filterProducts(cat,btn){
 }
 function renderProducts(filter='All'){
   const grid=document.getElementById('product-grid');
-  const cats=[...new Set(allProducts.map(p=>p.category))];
-  document.getElementById('filter-bar').innerHTML='<button class="filter-btn'+(filter==='All'?' active':'')+'" onclick="filterProducts(\'All\',this)">All</button>'+cats.map(c=>`<button class="filter-btn${filter===c?' active':''}" onclick="filterProducts('${c}',this)">${c}</button>`).join('');
+  renderFilterBar(filter);
   const vis=filter==='All'?allProducts:allProducts.filter(p=>p.category===filter);
   if(!vis.length){grid.innerHTML='<div class="empty-store">No products yet — check back soon.</div>';return;}
-  grid.innerHTML=vis.map(p=>{
-    const img=p.img_data||p.img_url;
-    const imgEl=img?`<img src="${img}" onerror="this.parentElement.innerHTML='<div class=\'product-img-ph\'>${p.name}</div>'">`:`<div class="product-img-ph">${p.name}</div>`;
-    const sizes=p.sizes?p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join(''):'';
-    const inStock=parseInt(p.stock||0)>0;
-    return`<div class="product-card"><div class="product-img-wrap">${imgEl}</div><div class="product-info"><div class="product-cat">${p.category}</div><div class="product-name">${p.name}</div>${p.description?`<div class="product-desc">${p.description}</div>`:''}${sizes?`<div class="product-sizes">${sizes}</div>`:''}
-    <div class="product-footer"><div class="product-price">${fmt(p.price)}</div>${inStock?`<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button>`:`<span class="out-of-stock">Out of Stock</span>`}</div></div></div>`;
-  }).join('');
+  grid.innerHTML='';
+  vis.forEach((p,i)=>setTimeout(()=>appendProduct(p),i*100));
 }
 function addToCart(id){const p=allProducts.find(x=>x.id===id);if(!p)return;const ex=cart.find(c=>c.id===id);if(ex)ex.qty++;else cart.push({id,name:p.name,price:parseFloat(p.price),qty:1,category:p.category});updateCartCount();openCart();}
 function removeFromCart(id){cart=cart.filter(c=>c.id!==id);renderCartItems();updateCartCount();}
