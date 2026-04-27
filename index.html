@@ -463,36 +463,31 @@ async function loadProducts(forceRefresh=false){
       if(cached){const {ts,data}=JSON.parse(cached);if(Date.now()-ts<CACHE_TTL&&Array.isArray(data)&&data.length){allProducts=data;renderProducts();return;}}
     }catch(e){try{sessionStorage.removeItem(CACHE_KEY);}catch(e2){}}
   }
-  // Progressive loading — fetch in batches of 10, render each as it arrives
-  const BATCH=10;
-  let offset=0;
-  allProducts=[];
-  // Show skeletons while first batch loads
+  // Show skeletons while fetching
   document.getElementById('product-grid').innerHTML=`
     <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
     <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
     <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>
     <div class="skeleton-card"><div class="skeleton-img"></div><div class="skeleton-line short"></div><div class="skeleton-line med"></div><div class="skeleton-line price"></div></div>`;
-  let firstBatch=true;
-  while(true){
-    try{
-      const r=await fetch(`${SU}/rest/v1/products?order=created_at.desc&limit=${BATCH}&offset=${offset}`,{headers:{...H,'Range-Unit':'items','Range':`${offset}-${offset+BATCH-1}`}});
-      const batch=await r.json();
-      if(!Array.isArray(batch)||batch.length===0)break;
-      if(firstBatch){document.getElementById('product-grid').innerHTML='';firstBatch=false;}
-      allProducts=[...allProducts,...batch];
-      appendProducts(batch);
-      offset+=batch.length;
-      if(batch.length<BATCH)break;
-    }catch(e){break;}
+  try{
+    const result=await sbGet('products');
+    allProducts=Array.isArray(result)?result:[];
+  }catch(e){
+    allProducts=[];
+    document.getElementById('product-grid').innerHTML='<div class="empty-store">Could not load products. Please refresh.</div>';
+    return;
   }
   if(!allProducts.length){
     document.getElementById('product-grid').innerHTML='<div class="empty-store">No products yet — check back soon.</div>';
     return;
   }
-  // Rebuild filter bar now we have all products
-  renderFilterBar('All');
   try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:allProducts}));}catch(e){}
+  // Clear skeletons then render one by one
+  document.getElementById('product-grid').innerHTML='';
+  renderFilterBar('All');
+  allProducts.forEach((p,i)=>{
+    setTimeout(()=>appendProducts([p]),i*80);
+  });
 }
 function appendProducts(batch){
   const grid=document.getElementById('product-grid');
