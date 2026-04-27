@@ -446,7 +446,7 @@ footer{background:var(--ink);color:#888;padding:32px 40px;display:flex;justify-c
 const SU='https://wgqzxrjvqhnvdvtgmmmr.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXp4cmp2cWhudmR2dGdtbW1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDgzMTUsImV4cCI6MjA5MTQyNDMxNX0.LLBNYtENdR5Ocxcujw_vw8JYXvjcWlp8gC9xA3ZaL9o';
 const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK};
-async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc`,{headers:H});return r.json();}
+async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc&limit=1000`,{headers:{...H,'Range-Unit':'items','Range':'0-999'}});return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(d)});return r.json();}
 async function sbUpdate(t,id,d){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}
 let cart=[],cartShip=5,allProducts=[];
@@ -455,15 +455,22 @@ function scrollSec(id){document.getElementById(id)?.scrollIntoView({behavior:'sm
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2);}
 async function loadProducts(forceRefresh=false){
   const CACHE_KEY='gb_products_v1';
-  const CACHE_TTL=5*60*1000; // 5 minutes
+  const CACHE_TTL=5*60*1000;
   if(!forceRefresh){
     try{
       const cached=sessionStorage.getItem(CACHE_KEY);
-      if(cached){const {ts,data}=JSON.parse(cached);if(Date.now()-ts<CACHE_TTL){allProducts=data;renderProducts();return;}}
-    }catch(e){}
+      if(cached){const {ts,data}=JSON.parse(cached);if(Date.now()-ts<CACHE_TTL&&Array.isArray(data)&&data.length){allProducts=data;renderProducts();return;}}
+    }catch(e){try{sessionStorage.removeItem(CACHE_KEY);}catch(e2){}}
   }
-  allProducts=await sbGet('products');
-  try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:allProducts}));}catch(e){}
+  try{
+    const result=await sbGet('products');
+    allProducts=Array.isArray(result)?result:[];
+    try{sessionStorage.setItem(CACHE_KEY,JSON.stringify({ts:Date.now(),data:allProducts}));}catch(e){}
+  }catch(e){
+    allProducts=[];
+    document.getElementById('product-grid').innerHTML='<div class="empty-store">Could not load products. Please refresh.</div>';
+    return;
+  }
   renderProducts();
 }
 function filterProducts(cat,btn){document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active'));btn.classList.add('active');renderProducts(cat);}
