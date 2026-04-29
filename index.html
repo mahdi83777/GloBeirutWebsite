@@ -465,7 +465,7 @@ footer{background:var(--ink);color:#888;padding:32px 40px;display:flex;justify-c
 const SU='https://wgqzxrjvqhnvdvtgmmmr.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXp4cmp2cWhudmR2dGdtbW1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDgzMTUsImV4cCI6MjA5MTQyNDMxNX0.LLBNYtENdR5Ocxcujw_vw8JYXvjcWlp8gC9xA3ZaL9o';
 const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK};
-async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc&limit=1000`,{headers:{...H,'Range-Unit':'items','Range':'0-999'}});return r.json();}
+async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc&limit=1000&select=id,name,category,price,stock,sizes,size_stock,description,img_url`,{headers:{...H,'Range-Unit':'items','Range':'0-999'}});return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(d)});return r.json();}
 async function sbUpdate(t,id,d){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}
 let cart=[],cartShip=5,allProducts=[];

@@ -561,17 +561,21 @@ async function saveEdit(){
     btn.innerHTML='<span class="spinner"></span> Uploading image...';
     const ext=editPendingFile.name.split('.').pop();
     const path=`${id}-${Date.now()}.${ext}`;
-    const up=await fetch(`${SU}/storage/v1/object/product-images/${path}`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':editPendingFile.type,'x-upsert':'true'},body:editPendingFile});
+    const up=await fetch(`${SU}/storage/v1/object/product-images/${path}`,{method:'PUT',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':editPendingFile.type,'x-upsert':'true'},body:editPendingFile});
     if(up.ok){
       img_url=`${SU}/storage/v1/object/public/product-images/${path}`;
-      img_data=null; // clear old base64 blob
+      img_data=null;
     } else {
-      alertEl.className='aalert aalert-e';alertEl.textContent='Image upload failed. Check your Supabase Storage bucket is named "product-images" and is public.';alertEl.style.display='block';
+      const upErr=await up.json().catch(()=>({message:'Unknown error'}));
+      console.error('Storage error:',JSON.stringify(upErr));
+      alertEl.className='aalert aalert-e';alertEl.textContent='Image upload failed: '+JSON.stringify(upErr);alertEl.style.display='block';
       btn.innerHTML='Save Changes';btn.disabled=false;return;
     }
   }
   try{
-    await sbUpdate('products',id,{name,category,price,cost,stock,sizes,description,img_url});
+    const updateData={name,category,price,cost,stock,sizes,description,img_url};
+    if(Object.keys(size_stock).length)updateData.size_stock=JSON.stringify(size_stock);
+    await sbUpdate('products',id,updateData);
   }catch(err){
     alertEl.className='aalert aalert-e';alertEl.textContent='Save failed: '+err.message;alertEl.style.display='block';
     btn.innerHTML='Save Changes';btn.disabled=false;return;
