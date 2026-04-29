@@ -65,6 +65,8 @@ nav{background:#fff;border-bottom:1px solid var(--border);display:flex;align-ite
 .product-desc{font-size:12px;color:var(--bark);line-height:1.6;margin-bottom:10px;}
 .product-sizes{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:12px;}
 .size-chip{border:1px solid var(--border);padding:3px 8px;font-size:10px;letter-spacing:1px;border-radius:2px;color:var(--bark);}
+.size-chip.size-out{opacity:.35;text-decoration:line-through;}
+.size-select{border:1px solid var(--border);border-radius:2px;padding:6px 8px;font-size:12px;background:#fff;cursor:pointer;}
 .product-footer{display:flex;align-items:center;justify-content:space-between;}
 .product-price{font-family:var(--serif);font-size:21px;font-weight:600;}
 .add-to-cart{background:var(--ink);color:#fff;border:none;padding:9px 16px;font-size:11px;letter-spacing:1px;text-transform:uppercase;border-radius:2px;transition:background .2s;}
@@ -428,9 +430,15 @@ footer{background:var(--ink);color:#888;padding:32px 40px;display:flex;justify-c
       </div>
       <div class="form-row2">
         <div class="form-group"><label class="form-label">Price (USD) *</label><input class="form-input" id="edit-price" type="number" step="0.01" placeholder="0.00"></div>
-        <div class="form-group"><label class="form-label">Stock (qty)</label><input class="form-input" id="edit-stock" type="number" placeholder="0"></div>
       </div>
-      <div class="form-group"><label class="form-label">Sizes (comma-separated)</label><input class="form-input" id="edit-sizes" placeholder="XS, S, M, L, XL"></div>
+      <div class="form-group">
+        <label class="form-label">Sizes (comma-separated)</label>
+        <input class="form-input" id="edit-sizes" placeholder="XS, S, M, L, XL" oninput="renderSizeStockFields(this.value, null)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Stock per Size</label>
+        <div id="edit-size-stock-wrap" style="margin-top:6px;"></div>
+      </div>
       <div class="form-group"><label class="form-label">Description</label><textarea class="form-input" id="edit-desc" rows="3" style="resize:vertical;" placeholder="Short product description"></textarea></div>
       <div class="form-group">
         <label class="form-label">Image</label>
@@ -503,14 +511,47 @@ function appendProduct(p){
   const grid=document.getElementById('product-grid');
   const img=p.img_data||p.img_url;
   const imgEl=img?`<img src="${img}" loading="lazy" onerror="this.parentElement.innerHTML='<div class=\\'product-img-ph\\'>${p.name}</div>'">`:`<div class="product-img-ph">${p.name}</div>`;
-  const sizes=p.sizes?p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join(''):'';
-  const inStock=parseInt(p.stock||0)>0;
+  // Parse size_stock if available
+  let sizeStock={};
+  try{if(p.size_stock)sizeStock=typeof p.size_stock==='string'?JSON.parse(p.size_stock):p.size_stock;}catch(e){}
+  const hasSizeStock=Object.keys(sizeStock).length>0;
+  let sizesHtml='';
+  if(hasSizeStock){
+    sizesHtml=`<div class="product-sizes">`;
+    sizesHtml+=Object.entries(sizeStock).map(([s,q])=>{
+      const out=parseInt(q)<=0;
+      return`<span class="size-chip${out?' size-out':''}" title="${out?'Out of stock':q+' left'}">${s}</span>`;
+    }).join('');
+    sizesHtml+=`</div>`;
+  } else if(p.sizes){
+    sizesHtml=`<div class="product-sizes">${p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join('')}</div>`;
+  }
+  const totalStock=hasSizeStock?Object.values(sizeStock).reduce((a,b)=>a+parseInt(b||0),0):parseInt(p.stock||0);
+  const inStock=totalStock>0;
+  // Size selector for add to cart
+  let sizeSelector='';
+  if(hasSizeStock){
+    const availSizes=Object.entries(sizeStock).filter(([s,q])=>parseInt(q)>0);
+    if(availSizes.length>0){
+      sizeSelector=`<select class="size-select" id="size-${p.id}" style="border:1px solid var(--border);border-radius:2px;padding:6px 8px;font-size:12px;margin-right:6px;background:#fff;">
+        ${availSizes.map(([s])=>`<option value="${s}">${s}</option>`).join('')}
+      </select>`;
+    }
+  }
   const card=document.createElement('div');
   card.className='product-card pop-in';
   card.dataset.category=p.category;
   card.dataset.id=p.id;
-  card.innerHTML=`<div class="product-img-wrap">${imgEl}</div><div class="product-info"><div class="product-cat">${p.category}</div><div class="product-name">${p.name}</div>${p.description?`<div class="product-desc">${p.description}</div>`:''}${sizes?`<div class="product-sizes">${sizes}</div>`:''}
-  <div class="product-footer"><div class="product-price">${fmt(p.price)}</div>${inStock?`<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button>`:`<span class="out-of-stock">Out of Stock</span>`}</div></div>`;
+  card.innerHTML=`<div class="product-img-wrap">${imgEl}</div><div class="product-info">
+    <div class="product-cat">${p.category}</div>
+    <div class="product-name">${p.name}</div>
+    ${p.description?`<div class="product-desc">${p.description}</div>`:''}
+    ${sizesHtml}
+    <div class="product-footer">
+      <div class="product-price">${fmt(p.price)}</div>
+      ${inStock?`<div style="display:flex;align-items:center;">${sizeSelector}<button class="add-to-cart" onclick="addToCart('${p.id}')">Add to Cart</button></div>`:`<span class="out-of-stock">Out of Stock</span>`}
+    </div>
+  </div>`;
   grid.appendChild(card);
 }
 function renderFilterBar(filter){
@@ -532,8 +573,17 @@ function renderProducts(filter='All'){
   grid.innerHTML='';
   vis.forEach((p,i)=>setTimeout(()=>appendProduct(p),i*100));
 }
-function addToCart(id){const p=allProducts.find(x=>x.id===id);if(!p)return;const ex=cart.find(c=>c.id===id);if(ex)ex.qty++;else cart.push({id,name:p.name,price:parseFloat(p.price),qty:1,category:p.category});updateCartCount();openCart();}
-function removeFromCart(id){cart=cart.filter(c=>c.id!==id);renderCartItems();updateCartCount();}
+function addToCart(id){
+  const p=allProducts.find(x=>x.id===id);if(!p)return;
+  const sizeEl=document.getElementById('size-'+id);
+  const size=sizeEl?sizeEl.value:'';
+  const cartKey=id+(size?'-'+size:'');
+  const ex=cart.find(c=>c.cartKey===cartKey);
+  if(ex)ex.qty++;
+  else cart.push({cartKey,id,name:p.name+(size?' ('+size+')':''),price:parseFloat(p.price),qty:1,category:p.category,size});
+  updateCartCount();openCart();
+}
+function removeFromCart(cartKey){cart=cart.filter(c=>c.cartKey!==cartKey);renderCartItems();updateCartCount();}
 function updateCartCount(){document.getElementById('cart-count').textContent=cart.reduce((a,c)=>a+c.qty,0);}
 function cartSub(){return cart.reduce((a,c)=>a+c.price*c.qty,0);}
 function openCart(){document.getElementById('cart-overlay').classList.add('open');document.getElementById('cart-drawer').classList.add('open');renderCartItems();}
@@ -542,7 +592,7 @@ function renderCartItems(){
   const el=document.getElementById('cart-items-wrap'),foot=document.getElementById('cart-footer-wrap');
   if(!cart.length){el.innerHTML='<div class="empty-cart">Your cart is empty</div>';foot.style.display='none';return;}
   foot.style.display='block';
-  el.innerHTML=cart.map(c=>`<div class="cart-item"><div class="cart-item-info"><div class="cart-item-name">${c.name}</div><div class="cart-item-meta">${c.category} · Qty: ${c.qty}</div></div><div class="cart-item-price">${fmt(c.price*c.qty)}</div><button class="cart-item-remove" onclick="removeFromCart('${c.id}')">×</button></div>`).join('');
+  el.innerHTML=cart.map(c=>`<div class="cart-item"><div class="cart-item-info"><div class="cart-item-name">${c.name}</div><div class="cart-item-meta">${c.category} · Qty: ${c.qty}</div></div><div class="cart-item-price">${fmt(c.price*c.qty)}</div><button class="cart-item-remove" onclick="removeFromCart('${c.cartKey}')">×</button></div>`).join('');
   document.getElementById('cart-sub').textContent=fmt(cartSub());
   document.getElementById('cart-total-est').textContent=fmt(cartSub()+5);
 }
@@ -581,28 +631,39 @@ async function adminRefresh(){
 }
 async function renderAdminProducts(){
   const prods=await sbGet('products');
-  if(!prods.length){document.getElementById('admin-content').innerHTML='<div style="color:var(--bark);font-style:italic;padding:20px 0;">No products found.</div>';return;}
+  if(!Array.isArray(prods)||!prods.length){document.getElementById('admin-content').innerHTML='<div style="color:var(--bark);font-style:italic;padding:20px 0;">No products found.</div>';return;}
+  // Store products in a global map so edit button can access by id safely
+  window._adminProds={};
+  prods.forEach(p=>window._adminProds[p.id]=p);
   const rows=prods.map(p=>{
     const img=p.img_data||p.img_url;
     const thumb=img?`<img src="${img}" class="admin-thumb" onerror="this.style.display='none'">`:`<div class="admin-thumb-ph">No img</div>`;
-    const stock=parseInt(p.stock||0);
-    const stockBadge=stock>0?`<span class="badge badge-green">${stock} in stock</span>`:`<span class="badge badge-red">Out of stock</span>`;
-    const pJson=JSON.stringify(JSON.stringify(p));
+    // Show size quantities if available, else fall back to stock
+    let stockDisplay='';
+    if(p.size_stock){
+      try{
+        const ss=typeof p.size_stock==='string'?JSON.parse(p.size_stock):p.size_stock;
+        stockDisplay=Object.entries(ss).map(([s,q])=>`<span class="badge badge-bark">${s}:${q}</span>`).join(' ');
+      }catch(e){}
+    }
+    if(!stockDisplay){
+      const stock=parseInt(p.stock||0);
+      stockDisplay=stock>0?`<span class="badge badge-green">${stock} in stock</span>`:`<span class="badge badge-red">Out of stock</span>`;
+    }
     return`<tr>
       <td>${thumb}</td>
       <td><strong>${p.name}</strong></td>
       <td><span class="badge badge-bark">${p.category}</span></td>
       <td>${fmt(p.price)}</td>
-      <td>${stockBadge}</td>
-      <td style="font-size:11px;color:var(--bark);">${p.sizes||'—'}</td>
+      <td>${stockDisplay}</td>
       <td><div class="action-btns">
-        <button class="edit-btn" onclick="openEditProduct(${pJson})">Edit</button>
+        <button class="edit-btn" onclick="openEditProduct('${p.id}')">Edit</button>
         <button class="del-btn" onclick="deleteProduct('${p.id}','${p.name.replace(/'/g,"\\'")}')">Delete</button>
       </div></td>
     </tr>`;
   }).join('');
   document.getElementById('admin-content').innerHTML=`<div style="overflow-x:auto;"><table class="admin-table">
-    <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock</th><th>Sizes</th><th>Actions</th></tr></thead>
+    <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock by Size</th><th>Actions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
 }
@@ -640,13 +701,13 @@ function showAdminMsg(msg,type){
   el.innerHTML=`<div class="admin-msg ${type==='ok'?'ok':'err'}">${msg}</div>`;
   setTimeout(()=>{el.innerHTML='';},3500);
 }
-function openEditProduct(jsonStr){
-  const p=JSON.parse(jsonStr);
+function openEditProduct(id){
+  const p=window._adminProds[id];
+  if(!p)return;
   document.getElementById('edit-id').value=p.id;
   document.getElementById('edit-name').value=p.name||'';
   document.getElementById('edit-category').value=p.category||'';
   document.getElementById('edit-price').value=p.price||'';
-  document.getElementById('edit-stock').value=p.stock||0;
   document.getElementById('edit-sizes').value=p.sizes||'';
   document.getElementById('edit-desc').value=p.description||'';
   document.getElementById('edit-img-url').value=p.img_url||'';
@@ -657,9 +718,23 @@ function openEditProduct(jsonStr){
   document.getElementById('edit-img-current').innerHTML=currentImg
     ?`<div style="font-size:11px;color:var(--bark);margin-bottom:4px;">Current image:</div><img src="${currentImg}" style="max-height:100px;border-radius:3px;border:1px solid var(--border);">`
     :'';
+  // Populate size stock fields
+  renderSizeStockFields(p.sizes||'', p.size_stock);
   document.getElementById('edit-modal-title').textContent='Edit — '+p.name;
   document.getElementById('edit-msg').style.display='none';
   document.getElementById('edit-product-modal').classList.remove('hidden');
+}
+function renderSizeStockFields(sizesStr, sizeStockData){
+  const wrap=document.getElementById('edit-size-stock-wrap');
+  const sizes=sizesStr.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!sizes.length){wrap.innerHTML='<div style="font-size:12px;color:var(--bark);">Enter sizes above first, then quantities will appear here.</div>';return;}
+  let existing={};
+  try{existing=sizeStockData?(typeof sizeStockData==='string'?JSON.parse(sizeStockData):sizeStockData):{};}catch(e){}
+  wrap.innerHTML=`<div style="display:flex;gap:10px;flex-wrap:wrap;">`+sizes.map(s=>`
+    <div style="text-align:center;">
+      <div style="font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--bark);margin-bottom:4px;">${s}</div>
+      <input class="form-input" type="number" min="0" style="width:64px;text-align:center;padding:6px;" data-size="${s}" value="${existing[s]||0}">
+    </div>`).join('')+`</div>`;
 }
 function closeEditModal(){document.getElementById('edit-product-modal').classList.add('hidden');}
 function previewEditImg(){
@@ -678,11 +753,15 @@ async function saveProduct(){
   const name=document.getElementById('edit-name').value.trim();
   const category=document.getElementById('edit-category').value.trim();
   const price=parseFloat(document.getElementById('edit-price').value);
-  const stock=parseInt(document.getElementById('edit-stock').value)||0;
   const sizes=document.getElementById('edit-sizes').value.trim();
   const description=document.getElementById('edit-desc').value.trim();
   const msgEl=document.getElementById('edit-msg');
   if(!name||!category||isNaN(price)){msgEl.textContent='Name, category and price are required.';msgEl.className='admin-msg err';msgEl.style.display='block';return;}
+  // Collect size stock
+  const sizeInputs=document.querySelectorAll('#edit-size-stock-wrap input[data-size]');
+  const size_stock={};
+  let totalStock=0;
+  sizeInputs.forEach(inp=>{const q=parseInt(inp.value)||0;size_stock[inp.dataset.size]=q;totalStock+=q;});
   const btn=document.getElementById('save-product-btn');btn.textContent='Saving…';btn.disabled=true;
   let img_url=document.getElementById('edit-img-url').value.trim();
   const file=document.getElementById('edit-img-file').files[0];
@@ -698,7 +777,7 @@ async function saveProduct(){
       btn.textContent='Save Changes';btn.disabled=false;return;
     }
   }
-  await sbUpdate('products',id,{name,category,price,stock,sizes,description,img_url,img_data:null});
+  await sbUpdate('products',id,{name,category,price,stock:totalStock,sizes,size_stock:JSON.stringify(size_stock),description,img_url,img_data:null});
   btn.textContent='Save Changes';btn.disabled=false;
   closeEditModal();
   showAdminMsg('✓ Product updated successfully','ok');
