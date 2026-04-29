@@ -330,7 +330,11 @@ const ADMIN_PW='globeirut2026';
 const SU='https://wgqzxrjvqhnvdvtgmmmr.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXp4cmp2cWhudmR2dGdtbW1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDgzMTUsImV4cCI6MjA5MTQyNDMxNX0.LLBNYtENdR5Ocxcujw_vw8JYXvjcWlp8gC9xA3ZaL9o';
 const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK};
-async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc`,{headers:H});return r.json();}
+async function sbGet(t){
+  const cols = t==='products' ? '&select=id,name,category,price,cost,stock,sizes,description,img_url,added' : '';
+  const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc${cols}`,{headers:H});
+  return r.json();
+}
 async function sbInsert(t,d){const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(d)});return r.json();}
 async function sbDelete(t,id){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}
 async function sbUpdate(t,id,d){
@@ -417,7 +421,7 @@ function renderProductsTbl(){
   const el=document.getElementById('products-tbl');
   if(!allProducts.length){el.innerHTML='<div class="aempty">No products yet.</div>';return;}
   el.innerHTML=`<table class="atable"><thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Margin</th><th>Stock</th><th></th></tr></thead><tbody>${allProducts.map(p=>{
-    const img=p.img_data||p.img_url;
+    const img=p.img_url;
     const m=p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0):'0';
     return`<tr><td>${img?`<img src="${img}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--border);">`:`<div style="width:44px;height:44px;background:var(--surface2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bark);">No img</div>`}</td><td><b>${p.name}</b><br><span style="font-size:11px;color:var(--bark)">${p.sizes||''}</span></td><td><span class="exp-tag">${p.category}</span></td><td style="font-family:var(--mono)">${fmt(p.price)}</td><td><span class="abadge ${parseInt(m)>30?'abg':'abgr'}">${m}%</span></td><td><span class="abadge ${parseInt(p.stock)>0?'abg':'abr'}">${p.stock}</span></td><td style="white-space:nowrap;"><button class="abtn abtn-ghost abtn-sm" style="margin-right:4px;" onclick="openEdit('${p.id}')">Edit</button><button class="abtn abtn-ghost abtn-sm abtn-danger" onclick="deleteProduct('${p.id}')">Delete</button></td></tr>`;
   }).join('')}</tbody></table>`;
@@ -491,7 +495,7 @@ function openEdit(id){
   document.getElementById('edit-img-url').value=p.img_url||'';
   document.getElementById('edit-alert').style.display='none';
   // Show current image
-  const curImg=p.img_url||p.img_data;
+  const curImg=p.img_url;
   document.getElementById('edit-img-cur').innerHTML=curImg
     ?`<div style="font-size:11px;color:var(--bark);margin-bottom:4px;">Current image:</div><img src="${curImg}" style="max-height:80px;border-radius:4px;border:1px solid var(--border);">`
     :'';
