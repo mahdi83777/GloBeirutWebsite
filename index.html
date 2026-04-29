@@ -193,7 +193,7 @@ footer{background:var(--ink);color:#888;padding:32px 40px;display:flex;justify-c
 .edit-btn:hover{background:var(--accent);}
 .del-btn{background:#fff;color:var(--red);border:1px solid #f5c2c2;padding:5px 10px;font-size:10px;letter-spacing:1px;text-transform:uppercase;border-radius:2px;cursor:pointer;transition:all .2s;}
 .del-btn:hover{background:var(--red);color:#fff;border-color:var(--red);}
-.edit-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:500;display:flex;align-items:center;justify-content:center;padding:20px;}
+.edit-modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:600;display:flex;align-items:center;justify-content:center;padding:20px;}
 .edit-modal-overlay.hidden{display:none;}
 .edit-modal{background:#fff;border-radius:8px;width:100%;max-width:540px;max-height:90vh;overflow-y:auto;border:1px solid var(--border);}
 .edit-modal-header{padding:20px 24px 0;display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -657,8 +657,8 @@ async function renderAdminProducts(){
       <td>${fmt(p.price)}</td>
       <td>${stockDisplay}</td>
       <td><div class="action-btns">
-        <button class="edit-btn" onclick="openEditProduct('${p.id}')">Edit</button>
-        <button class="del-btn" onclick="deleteProduct('${p.id}','${p.name.replace(/'/g,"\\'")}')">Delete</button>
+        <button class="edit-btn" data-id="${p.id}">Edit</button>
+        <button class="del-btn" data-id="${p.id}" data-name="${p.name.replace(/"/g,'&quot;')}">Delete</button>
       </div></td>
     </tr>`;
   }).join('');
@@ -666,6 +666,13 @@ async function renderAdminProducts(){
     <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Stock by Size</th><th>Actions</th></tr></thead>
     <tbody>${rows}</tbody>
   </table></div>`;
+  // Attach click handlers safely via JS (avoids any HTML escaping issues)
+  document.querySelectorAll('.edit-btn[data-id]').forEach(btn=>{
+    btn.onclick=()=>openEditProduct(btn.dataset.id);
+  });
+  document.querySelectorAll('.del-btn[data-id]').forEach(btn=>{
+    btn.onclick=()=>deleteProduct(btn.dataset.id, btn.dataset.name);
+  });
 }
 async function renderAdminOrders(){
   const orders=await sbGet('orders');
