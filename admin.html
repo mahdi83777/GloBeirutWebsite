@@ -333,7 +333,10 @@ const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '
 async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc`,{headers:H});return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(d)});return r.json();}
 async function sbDelete(t,id){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}
-async function sbUpdate(t,id,d){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}
+async function sbUpdate(t,id,d){
+  const r=await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});
+  if(!r.ok){const err=await r.json();console.error('Supabase PATCH error:',err);throw new Error(err.message||'Update failed');}
+}
 
 let allProducts=[],allOrders=[],allExpenses=[],pendingImg='';
 function fmt(n){return'$'+(+n).toFixed(2);}
@@ -562,7 +565,12 @@ async function saveEdit(){
       btn.innerHTML='Save Changes';btn.disabled=false;return;
     }
   }
-  await sbUpdate('products',id,{name,category,price,cost,stock,sizes,size_stock:Object.keys(size_stock).length?JSON.stringify(size_stock):null,description,img_url,img_data});
+  try{
+    await sbUpdate('products',id,{name,category,price,cost,stock,sizes,description,img_url});
+  }catch(err){
+    alertEl.className='aalert aalert-e';alertEl.textContent='Save failed: '+err.message;alertEl.style.display='block';
+    btn.innerHTML='Save Changes';btn.disabled=false;return;
+  }
   btn.innerHTML='Save Changes';btn.disabled=false;
   closeEdit();
   await loadAll();
