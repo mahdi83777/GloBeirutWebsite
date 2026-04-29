@@ -99,6 +99,19 @@ input,select,textarea{font-family:var(--sans);color:var(--ink);}
 .img-preview{width:80px;height:80px;object-fit:cover;border-radius:4px;border:1px solid var(--border);}
 .img-preview-wrap{display:flex;align-items:center;gap:12px;margin-top:8px;}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+.edit-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.edit-overlay.hidden{display:none;}
+.edit-box{background:#fff;border-radius:10px;width:100%;max-width:580px;max-height:90vh;overflow-y:auto;border:1px solid var(--border);}
+.edit-head{display:flex;align-items:center;justify-content:space-between;padding:20px 24px;border-bottom:1px solid var(--border);}
+.edit-head h3{font-family:var(--serif);font-size:22px;font-weight:300;}
+.edit-close{background:none;border:none;font-size:24px;color:var(--bark);cursor:pointer;line-height:1;}
+.edit-body{padding:20px 24px 28px;}
+.edit-img-cur{margin-bottom:10px;}
+.edit-img-cur img{max-height:90px;border-radius:4px;border:1px solid var(--border);}
+.size-stock-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px;}
+.size-stock-item{text-align:center;}
+.size-stock-item label{display:block;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--bark);margin-bottom:3px;}
+.size-stock-item input{width:60px;text-align:center;padding:6px 4px;border:1px solid var(--border);border-radius:4px;font-size:13px;}
 @keyframes spin{to{transform:rotate(360deg);}}
 </style>
 </head>
@@ -260,6 +273,58 @@ input,select,textarea{font-family:var(--sans);color:var(--ink);}
   </div>
 </div>
 
+<!-- EDIT PRODUCT MODAL -->
+<div class="edit-overlay hidden" id="edit-overlay">
+  <div class="edit-box">
+    <div class="edit-head">
+      <h3 id="edit-title">Edit Product</h3>
+      <button class="edit-close" onclick="closeEdit()">✕</button>
+    </div>
+    <div class="edit-body">
+      <div id="edit-alert" style="display:none;margin-bottom:12px;"></div>
+      <input type="hidden" id="edit-id">
+      <div class="arow3">
+        <div class="ag"><label class="al">Name *</label><input class="ai" id="edit-name" placeholder="Product name"></div>
+        <div class="ag"><label class="al">Category</label><select class="as" id="edit-cat"><option>Dresses</option><option>Tops</option><option>Bottoms</option><option>Outerwear</option><option>Accessories</option><option>Footwear</option><option>Sets / Suits</option><option>Other</option></select></div>
+        <div class="ag"><label class="al">Price ($)</label><input class="ai" type="number" id="edit-price" step="0.01" min="0"></div>
+      </div>
+      <div class="arow3">
+        <div class="ag"><label class="al">Cost ($)</label><input class="ai" type="number" id="edit-cost" step="0.01" min="0"></div>
+        <div class="ag"><label class="al">Stock Qty</label><input class="ai" type="number" id="edit-stock" min="0"></div>
+        <div class="ag"><label class="al">Sizes (comma separated)</label><input class="ai" id="edit-sizes" placeholder="XS, S, M, L, XL" oninput="renderEditSizeStock(this.value,null)"></div>
+      </div>
+      <div class="arow1" style="margin-bottom:12px;">
+        <div class="ag">
+          <label class="al">Stock per Size</label>
+          <div class="size-stock-row" id="edit-size-stock-row"><span style="font-size:12px;color:var(--bark);">Enter sizes above to set per-size stock.</span></div>
+        </div>
+      </div>
+      <div class="arow1"><div class="ag"><label class="al">Description</label><input class="ai" id="edit-desc" placeholder="Short description"></div></div>
+      <div class="arow1" style="margin-bottom:16px;">
+        <div class="ag">
+          <label class="al">Image</label>
+          <div class="edit-img-cur" id="edit-img-cur"></div>
+          <div class="img-upload-area" onclick="document.getElementById('edit-img-file').click()" style="margin-bottom:6px;">
+            <input type="file" id="edit-img-file" accept="image/*" onchange="previewEditImg(event)" style="display:none">
+            <div id="edit-upload-ph" style="color:var(--bark);font-size:13px;">Click to upload new image</div>
+            <div class="img-preview-wrap hidden" id="edit-img-preview-wrap">
+              <img id="edit-img-preview" class="img-preview" src="" alt="">
+              <div><div style="font-size:13px" id="edit-img-filename"></div>
+              <button onclick="clearEditImg(event)" style="margin-top:6px;font-size:12px;color:var(--red);background:none;border:none;padding:0;cursor:pointer;">Remove</button></div>
+            </div>
+          </div>
+          <div style="font-size:11px;color:var(--bark);font-family:var(--mono);">Or paste image URL:</div>
+          <input class="ai" id="edit-img-url" placeholder="https://..." style="margin-top:6px;">
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;">
+        <button class="abtn abtn-primary" id="edit-save-btn" onclick="saveEdit()" style="flex:1;">Save Changes</button>
+        <button class="abtn abtn-ghost" onclick="closeEdit()" style="flex:1;">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const ADMIN_PW='globeirut2026';
 const SU='https://wgqzxrjvqhnvdvtgmmmr.supabase.co';
@@ -268,6 +333,7 @@ const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '
 async function sbGet(t){const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc`,{headers:H});return r.json();}
 async function sbInsert(t,d){const r=await fetch(`${SU}/rest/v1/${t}`,{method:'POST',headers:{...H,'Prefer':'return=representation'},body:JSON.stringify(d)});return r.json();}
 async function sbDelete(t,id){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'DELETE',headers:H});}
+async function sbUpdate(t,id,d){await fetch(`${SU}/rest/v1/${t}?id=eq.${id}`,{method:'PATCH',headers:H,body:JSON.stringify(d)});}
 
 let allProducts=[],allOrders=[],allExpenses=[],pendingImg='';
 function fmt(n){return'$'+(+n).toFixed(2);}
@@ -349,7 +415,7 @@ function renderProductsTbl(){
   el.innerHTML=`<table class="atable"><thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Margin</th><th>Stock</th><th></th></tr></thead><tbody>${allProducts.map(p=>{
     const img=p.img_data||p.img_url;
     const m=p.price>0?(((p.price-p.cost)/p.price)*100).toFixed(0):'0';
-    return`<tr><td>${img?`<img src="${img}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--border);">`:`<div style="width:44px;height:44px;background:var(--surface2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bark);">No img</div>`}</td><td><b>${p.name}</b><br><span style="font-size:11px;color:var(--bark)">${p.sizes||''}</span></td><td><span class="exp-tag">${p.category}</span></td><td style="font-family:var(--mono)">${fmt(p.price)}</td><td><span class="abadge ${parseInt(m)>30?'abg':'abgr'}">${m}%</span></td><td><span class="abadge ${parseInt(p.stock)>0?'abg':'abr'}">${p.stock}</span></td><td><button class="abtn abtn-ghost abtn-sm abtn-danger" onclick="deleteProduct('${p.id}')">Delete</button></td></tr>`;
+    return`<tr><td>${img?`<img src="${img}" style="width:44px;height:44px;object-fit:cover;border-radius:4px;border:1px solid var(--border);">`:`<div style="width:44px;height:44px;background:var(--surface2);border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--bark);">No img</div>`}</td><td><b>${p.name}</b><br><span style="font-size:11px;color:var(--bark)">${p.sizes||''}</span></td><td><span class="exp-tag">${p.category}</span></td><td style="font-family:var(--mono)">${fmt(p.price)}</td><td><span class="abadge ${parseInt(m)>30?'abg':'abgr'}">${m}%</span></td><td><span class="abadge ${parseInt(p.stock)>0?'abg':'abr'}">${p.stock}</span></td><td style="white-space:nowrap;"><button class="abtn abtn-ghost abtn-sm" style="margin-right:4px;" onclick="openEdit('${p.id}')">Edit</button><button class="abtn abtn-ghost abtn-sm abtn-danger" onclick="deleteProduct('${p.id}')">Delete</button></td></tr>`;
   }).join('')}</tbody></table>`;
 }
 
@@ -400,6 +466,109 @@ function renderPL(){
 }
 
 function showAlert(id,msg,type){const el=document.getElementById(id);el.className='aalert aalert-'+(type==='s'?'s':'e');el.textContent=msg;el.style.display='block';setTimeout(()=>el.style.display='none',3500);}
+
+// ── EDIT PRODUCT ──
+let editPendingImg='';
+let editPendingFile=null;
+
+function openEdit(id){
+  const p=allProducts.find(x=>x.id===id);
+  if(!p)return;
+  editPendingImg='';editPendingFile=null;
+  document.getElementById('edit-id').value=p.id;
+  document.getElementById('edit-title').textContent='Edit — '+p.name;
+  document.getElementById('edit-name').value=p.name||'';
+  document.getElementById('edit-cat').value=p.category||'Dresses';
+  document.getElementById('edit-price').value=p.price||'';
+  document.getElementById('edit-cost').value=p.cost||'';
+  document.getElementById('edit-stock').value=p.stock||0;
+  document.getElementById('edit-sizes').value=p.sizes||'';
+  document.getElementById('edit-desc').value=p.description||'';
+  document.getElementById('edit-img-url').value=p.img_url||'';
+  document.getElementById('edit-alert').style.display='none';
+  // Show current image
+  const curImg=p.img_url||p.img_data;
+  document.getElementById('edit-img-cur').innerHTML=curImg
+    ?`<div style="font-size:11px;color:var(--bark);margin-bottom:4px;">Current image:</div><img src="${curImg}" style="max-height:80px;border-radius:4px;border:1px solid var(--border);">`
+    :'';
+  // Reset file upload UI
+  document.getElementById('edit-img-file').value='';
+  document.getElementById('edit-upload-ph').classList.remove('hidden');
+  document.getElementById('edit-img-preview-wrap').classList.add('hidden');
+  // Size stock
+  renderEditSizeStock(p.sizes||'', p.size_stock);
+  document.getElementById('edit-overlay').classList.remove('hidden');
+}
+
+function closeEdit(){document.getElementById('edit-overlay').classList.add('hidden');}
+
+function renderEditSizeStock(sizesStr, sizeStockData){
+  const row=document.getElementById('edit-size-stock-row');
+  const sizes=sizesStr.split(',').map(s=>s.trim()).filter(Boolean);
+  if(!sizes.length){row.innerHTML='<span style="font-size:12px;color:var(--bark);">Enter sizes above to set per-size stock.</span>';return;}
+  let existing={};
+  try{if(sizeStockData)existing=typeof sizeStockData==='string'?JSON.parse(sizeStockData):sizeStockData;}catch(e){}
+  row.innerHTML=sizes.map(s=>`<div class="size-stock-item"><label>${s}</label><input type="number" min="0" data-size="${s}" value="${existing[s]||0}"></div>`).join('');
+}
+
+function previewEditImg(e){
+  const file=e.target.files[0];if(!file)return;
+  editPendingFile=file;
+  document.getElementById('edit-img-filename').textContent=file.name;
+  document.getElementById('edit-upload-ph').classList.add('hidden');
+  document.getElementById('edit-img-preview-wrap').classList.remove('hidden');
+  const reader=new FileReader();
+  reader.onload=ev=>{document.getElementById('edit-img-preview').src=ev.target.result;};
+  reader.readAsDataURL(file);
+}
+
+function clearEditImg(e){
+  e.stopPropagation();
+  editPendingFile=null;
+  document.getElementById('edit-img-file').value='';
+  document.getElementById('edit-upload-ph').classList.remove('hidden');
+  document.getElementById('edit-img-preview-wrap').classList.add('hidden');
+}
+
+async function saveEdit(){
+  const id=document.getElementById('edit-id').value;
+  const name=document.getElementById('edit-name').value.trim();
+  const category=document.getElementById('edit-cat').value;
+  const price=parseFloat(document.getElementById('edit-price').value)||0;
+  const cost=parseFloat(document.getElementById('edit-cost').value)||0;
+  const description=document.getElementById('edit-desc').value.trim();
+  const sizes=document.getElementById('edit-sizes').value.trim();
+  const alertEl=document.getElementById('edit-alert');
+  if(!name){alertEl.className='aalert aalert-e';alertEl.textContent='Product name is required.';alertEl.style.display='block';return;}
+  // Collect size stock
+  const sizeInputs=document.querySelectorAll('#edit-size-stock-row input[data-size]');
+  const size_stock={};let totalStock=0;
+  sizeInputs.forEach(inp=>{const q=parseInt(inp.value)||0;size_stock[inp.dataset.size]=q;totalStock+=q;});
+  const stock=sizeInputs.length>0?totalStock:parseInt(document.getElementById('edit-stock').value)||0;
+  const btn=document.getElementById('edit-save-btn');btn.innerHTML='<span class="spinner"></span> Saving...';btn.disabled=true;
+  // Handle image
+  let img_url=document.getElementById('edit-img-url').value.trim()||null;
+  let img_data=null;
+  if(editPendingFile){
+    btn.innerHTML='<span class="spinner"></span> Uploading image...';
+    const ext=editPendingFile.name.split('.').pop();
+    const path=`${id}-${Date.now()}.${ext}`;
+    const up=await fetch(`${SU}/storage/v1/object/product-images/${path}`,{method:'POST',headers:{'apikey':SK,'Authorization':'Bearer '+SK,'Content-Type':editPendingFile.type,'x-upsert':'true'},body:editPendingFile});
+    if(up.ok){
+      img_url=`${SU}/storage/v1/object/public/product-images/${path}`;
+      img_data=null; // clear old base64 blob
+    } else {
+      alertEl.className='aalert aalert-e';alertEl.textContent='Image upload failed. Check your Supabase Storage bucket is named "product-images" and is public.';alertEl.style.display='block';
+      btn.innerHTML='Save Changes';btn.disabled=false;return;
+    }
+  }
+  await sbUpdate('products',id,{name,category,price,cost,stock,sizes,size_stock:Object.keys(size_stock).length?JSON.stringify(size_stock):null,description,img_url,img_data});
+  btn.innerHTML='Save Changes';btn.disabled=false;
+  closeEdit();
+  await loadAll();
+  showAlert('prod-alert','✓ Product updated successfully.','s');
+  aNav('products',document.querySelector('.adm-item:nth-child(2)'));
+}
 
 document.getElementById('e-date').value=new Date().toISOString().split('T')[0];
 document.getElementById('login-pw').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
