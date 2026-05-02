@@ -291,7 +291,7 @@ input,select,textarea{font-family:var(--sans);color:var(--ink);}
       <div class="arow3">
         <div class="ag"><label class="al">Cost ($)</label><input class="ai" type="number" id="edit-cost" step="0.01" min="0"></div>
         <div class="ag"><label class="al">Stock Qty</label><input class="ai" type="number" id="edit-stock" min="0"></div>
-        <div class="ag"><label class="al">Sizes (comma separated)</label><input class="ai" id="edit-sizes" placeholder="XS, S, M, L, XL" oninput="renderEditSizeStock(this.value,null)"></div>
+        <div class="ag"><label class="al">Sizes (comma separated)</label><input class="ai" id="edit-sizes" placeholder="XS, S, M, L, XL" onblur="renderEditSizeStock(this.value,null)"></div>
       </div>
       <div class="arow1" style="margin-bottom:12px;">
         <div class="ag">
@@ -549,12 +549,16 @@ async function saveEdit(){
   const alertEl=document.getElementById('edit-alert');
   if(!name){alertEl.className='aalert aalert-e';alertEl.textContent='Product name is required.';alertEl.style.display='block';return;}
   // Collect size stock
-  const sizeInputs=document.querySelectorAll('#edit-size-stock-row input[data-size]');
+  const sizeInputs=[...document.querySelectorAll('#edit-size-stock-row input[data-size]')];
   const size_stock={};let totalStock=0;
-  sizeInputs.forEach(inp=>{const q=parseInt(inp.value)||0;size_stock[inp.dataset.size]=q;totalStock+=q;});
+  sizeInputs.forEach(inp=>{
+    const s=inp.getAttribute('data-size');
+    const q=parseInt(inp.value)||0;
+    size_stock[s]=q;
+    totalStock+=q;
+  });
   const manualStock=parseInt(document.getElementById('edit-stock').value)||0;
-  // Use size-based total only if sizes exist AND total > 0, otherwise use manual stock field
-  const stock=(sizeInputs.length>0&&totalStock>0)?totalStock:manualStock;
+  const stock=sizeInputs.length>0?totalStock:manualStock;
   console.log('Saving stock:',stock,'manualStock:',manualStock,'totalStock:',totalStock,'sizeInputs:',sizeInputs.length);
   const btn=document.getElementById('edit-save-btn');btn.innerHTML='<span class="spinner"></span> Saving...';btn.disabled=true;
   // Handle image
