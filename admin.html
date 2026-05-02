@@ -590,10 +590,10 @@ async function saveEdit(){
   }
   btn.innerHTML='Save Changes';btn.disabled=false;
   closeEdit();
-  await new Promise(r=>setTimeout(r,500));
+  await new Promise(r=>setTimeout(r,600));
   await loadAll();
+  renderProductsTbl();
   showAlert('prod-alert','✓ Product updated successfully.','s');
-  aNav('products',document.querySelector('.adm-item:nth-child(2)'));
 }
 
 document.getElementById('e-date').value=new Date().toISOString().split('T')[0];
