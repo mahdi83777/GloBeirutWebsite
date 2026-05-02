@@ -555,6 +555,7 @@ async function saveEdit(){
   const manualStock=parseInt(document.getElementById('edit-stock').value)||0;
   // Use size-based total only if sizes exist AND total > 0, otherwise use manual stock field
   const stock=(sizeInputs.length>0&&totalStock>0)?totalStock:manualStock;
+  console.log('Saving stock:',stock,'manualStock:',manualStock,'totalStock:',totalStock,'sizeInputs:',sizeInputs.length);
   const btn=document.getElementById('edit-save-btn');btn.innerHTML='<span class="spinner"></span> Saving...';btn.disabled=true;
   // Handle image
   let img_url=document.getElementById('edit-img-url').value.trim()||null;
