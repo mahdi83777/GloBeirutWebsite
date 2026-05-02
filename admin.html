@@ -582,6 +582,7 @@ async function saveEdit(){
   try{
     const updateData={name,category,price,cost,stock,sizes,description,img_url};
     if(Object.keys(size_stock).length)updateData.size_stock=JSON.stringify(size_stock);
+    console.log('PATCH payload:',JSON.stringify(updateData));
     await sbUpdate('products',id,updateData);
   }catch(err){
     alertEl.className='aalert aalert-e';alertEl.textContent='Save failed: '+err.message;alertEl.style.display='block';
