@@ -524,7 +524,7 @@ function appendProduct(p){
     }).join('');
     sizesHtml+=`</div>`;
   } else if(p.sizes){
-    sizesHtml=`<div class="product-sizes">${p.sizes.split(',').map(s=>`<span class="size-chip">${s.trim()}</span>`).join('')}</div>`;
+    sizesHtml=`<div class="product-sizes">${p.sizes.split(/[,\/]/).map(s=>`<span class="size-chip">${s.trim()}</span>`).join('')}</div>`;
   }
   const totalStock=hasSizeStock?Object.values(sizeStock).reduce((a,b)=>a+parseInt(b||0),0):parseInt(p.stock||0);
   const inStock=totalStock>0;

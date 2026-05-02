@@ -512,7 +512,7 @@ function closeEdit(){document.getElementById('edit-overlay').classList.add('hidd
 
 function renderEditSizeStock(sizesStr, sizeStockData){
   const row=document.getElementById('edit-size-stock-row');
-  const sizes=sizesStr.split(',').map(s=>s.trim()).filter(Boolean);
+  const sizes=sizesStr.split(/[,\/]/).map(s=>s.trim()).filter(Boolean);
   if(!sizes.length){row.innerHTML='<span style="font-size:12px;color:var(--bark);">Enter sizes above to set per-size stock.</span>';return;}
   let existing={};
   try{if(sizeStockData)existing=typeof sizeStockData==='string'?JSON.parse(sizeStockData):sizeStockData;}catch(e){}
