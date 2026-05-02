@@ -552,7 +552,9 @@ async function saveEdit(){
   const sizeInputs=document.querySelectorAll('#edit-size-stock-row input[data-size]');
   const size_stock={};let totalStock=0;
   sizeInputs.forEach(inp=>{const q=parseInt(inp.value)||0;size_stock[inp.dataset.size]=q;totalStock+=q;});
-  const stock=sizeInputs.length>0?totalStock:parseInt(document.getElementById('edit-stock').value)||0;
+  const manualStock=parseInt(document.getElementById('edit-stock').value)||0;
+  // Use size-based total only if sizes exist AND total > 0, otherwise use manual stock field
+  const stock=(sizeInputs.length>0&&totalStock>0)?totalStock:manualStock;
   const btn=document.getElementById('edit-save-btn');btn.innerHTML='<span class="spinner"></span> Saving...';btn.disabled=true;
   // Handle image
   let img_url=document.getElementById('edit-img-url').value.trim()||null;
