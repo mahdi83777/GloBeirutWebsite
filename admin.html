@@ -331,7 +331,7 @@ const SU='https://wgqzxrjvqhnvdvtgmmmr.supabase.co';
 const SK='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndncXp4cmp2cWhudmR2dGdtbW1yIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU4NDgzMTUsImV4cCI6MjA5MTQyNDMxNX0.LLBNYtENdR5Ocxcujw_vw8JYXvjcWlp8gC9xA3ZaL9o';
 const H={'Content-Type':'application/json','apikey':SK,'Authorization':'Bearer '+SK};
 async function sbGet(t){
-  const cols = t==='products' ? '&select=id,name,category,price,cost,stock,sizes,description,img_url,added' : '';
+  const cols = t==='products' ? '&select=id,name,category,price,cost,stock,sizes,size_stock,description,img_url,added' : '';
   const r=await fetch(`${SU}/rest/v1/${t}?order=created_at.desc${cols}`,{headers:H});
   return r.json();
 }
